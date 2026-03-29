@@ -1,0 +1,33 @@
+import gymnasium as gym
+from stable_baselines3 import A2C
+from stable_baselines3.common.env_util import make_vec_env
+
+env = make_vec_env(
+    "FrozenLake-v1",
+    n_envs=1,
+    env_kwargs={
+        "is_slippery": True,
+        "success_rate": 1.0 / 3.0,
+        "map_name": "4x4",
+    }
+)
+
+model = A2C("CnnPolicy", env, n_steps = 500, gamma= 0.99, ent_coef =0, use_rms_prop = False,
+            normalize_advantage=True, verbose=1, stats_window_size = 10)
+model.learn(total_timesteps=25000)
+model.save("a2c_frozenlake")
+
+del model
+
+model = A2C.load("a2c_frozenlake")
+
+# Separate env for rendering
+env = gym.make("FrozenLake-v1", is_slippery=True, render_mode="human")
+
+obs, info = env.reset()
+while True:
+    action, _states = model.predict(obs, deterministic=True)
+    obs, reward, terminated, truncated, info = env.step(action)
+
+    if terminated or truncated:
+        obs, info = env.reset()
