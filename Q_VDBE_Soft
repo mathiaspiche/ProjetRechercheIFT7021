@@ -1,6 +1,6 @@
 import numpy as np
 
-def Q_VDBE_softmax(environment, max_episodes, max_steps, start_epsilon, sigma, alpha, temperature, gamma):
+def Q_VCBE_softmax(environment, max_episodes, max_steps, start_epsilon, sigma, alpha, temperature, gamma):
   n_actions = env_extreme.action_space.n
   states_number = env_extreme.observation_space.n
   Q_values = np.zeros([states_number, n_actions])+0.1
@@ -9,6 +9,7 @@ def Q_VDBE_softmax(environment, max_episodes, max_steps, start_epsilon, sigma, a
   total_wins = 0
   total_stalled = 0
   politic = np.zeros([states_number, n_actions])
+  all_rewards = np.zeros(max_episodes)
   for t in range(max_episodes):
     true_rewards = 0
     state, _ = environment.reset()
@@ -22,9 +23,6 @@ def Q_VDBE_softmax(environment, max_episodes, max_steps, start_epsilon, sigma, a
         action = np.argmax(Q_values[state])
       next_state, reward, done, _, _ = env_extreme.step(action)
       step += 1
-      #if step == max_steps:
-        #reward -= 2
-        #total_stalled += 1
       true_rewards += reward
       projected_action = np.argmax(Q_values[next_state, :])
       change = reward + gamma * Q_values[next_state, projected_action] - Q_values[state, action]
@@ -34,16 +32,9 @@ def Q_VDBE_softmax(environment, max_episodes, max_steps, start_epsilon, sigma, a
       state = next_state
       if reward == 1:
         total_wins += 1
-    if t%10 == 0:
-      print("Statistics of episode ", t, " below:")
-      print("ε: ", epsilon)
-      print("Rewards: ", true_rewards)
-      print(total_wins)
-      
-    #print(step)
-    #print(reward)
-    #print(Q_values)
+    all_rewards[t] = true_rewards
   for j in range(states_number):
     best_action = np.argmax(Q_values[j, :])
     politic[j, best_action] = 1
-  return Q_values, politic, total_wins, total_stalled
+  
+  return Q_values, politic, total_wins, total_stalled, all_rewards
