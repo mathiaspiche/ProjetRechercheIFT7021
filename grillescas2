@@ -1,17 +1,17 @@
 grids = {
-    "Few holes": [
+    "Peu de trous": [
         "SFFF",
         "FHFF",
         "FFFF",
         "HFFG"
     ],
-    "Medium holes": [
+    "Nombre moyen de trous": [
         "SFFF",
         "FHFH",
         "FFFH",
         "HFFG"
     ],
-    "Many holes": [
+    "Beaucoup de trous": [
         "SHFH",
         "FHFH",
         "FFHH",
