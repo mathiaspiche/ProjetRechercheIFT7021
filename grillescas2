@@ -1,0 +1,20 @@
+grids = {
+    "Few holes": [
+        "SFFF",
+        "FHFF",
+        "FFFF",
+        "HFFG"
+    ],
+    "Medium holes": [
+        "SFFF",
+        "FHFH",
+        "FFFH",
+        "HFFG"
+    ],
+    "Many holes": [
+        "SHFH",
+        "FHFH",
+        "FFHH",
+        "HFFG"
+    ]
+}
