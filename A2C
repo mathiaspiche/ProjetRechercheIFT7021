@@ -1,33 +1,139 @@
 import gymnasium as gym
+import matplotlib.pyplot as plt
+
 from stable_baselines3 import A2C
 from stable_baselines3.common.env_util import make_vec_env
+from stable_baselines3.common.callbacks import BaseCallback
+from stable_baselines3.common.vec_env import VecMonitor
 
-env = make_vec_env(
+
+class EpisodeRewardCallback(BaseCallback):
+    def __init__(self):
+        super().__init__()
+        self.episode_rewards = []
+        self.episode_numbers = []
+        self.episode_count = 0
+
+    def _on_step(self) -> bool:
+        infos = self.locals.get("infos", [])
+
+        for info in infos:
+            if "episode" in info:
+                self.episode_count += 1
+                ep_reward = info["episode"]["r"]   # cumulative reward of that episode
+                self.episode_numbers.append(self.episode_count)
+                self.episode_rewards.append(ep_reward)
+
+        return True
+
+
+desc = [
+    "SFFF",
+    "FHFH",
+    "FFFH",
+    "HFFG"
+]
+
+train_env = make_vec_env(
     "FrozenLake-v1",
     n_envs=1,
     env_kwargs={
+        "desc": desc,
         "is_slippery": True,
-        "success_rate": 1.0 / 3.0,
-        "map_name": "4x4",
+        "success_rate": 1.0
     }
 )
 
-model = A2C("CnnPolicy", env, n_steps = 500, gamma= 0.99, ent_coef =0, use_rms_prop = False,
-            normalize_advantage=True, verbose=1, stats_window_size = 10)
-model.learn(total_timesteps=25000)
+train_env = VecMonitor(train_env)
+
+model = A2C(
+    "MlpPolicy",
+    train_env,
+    n_steps=100,
+    gamma=0.99,
+    ent_coef=0,
+    use_rms_prop=True,
+    normalize_advantage=True,
+    verbose=1,
+    stats_window_size=10
+)
+
+callback = EpisodeRewardCallback()
+
+model.learn(total_timesteps=50000, callback=callback)
+window = 10
+smoothed = []
+for i in range(len(callback.episode_rewards)):
+    start = max(0, i - window + 1)
+    smoothed.append(sum(callback.episode_rewards[start:i+1]) / (i - start + 1))
+
+plt.figure(figsize=(8, 5))
+plt.plot(callback.episode_numbers, smoothed)
+plt.xlabel("Episode")
+plt.ylabel("Average cumulative reward")
+plt.title("Smoothed cumulative reward over training")
+plt.grid(True)
+plt.show()
 model.save("a2c_frozenlake")
 
 del model
-
 model = A2C.load("a2c_frozenlake")
 
-# Separate env for rendering
-env = gym.make("FrozenLake-v1", is_slippery=True, render_mode="human")
+env = gym.make(
+    "FrozenLake-v1",
+    desc=desc,
+    is_slippery=True,
+    success_rate=1.0 / 3.0,
+    render_mode="human"
+)
 
-obs, info = env.reset()
-while True:
-    action, _states = model.predict(obs, deterministic=True)
-    obs, reward, terminated, truncated, info = env.step(action)
+ARROWS = {
+    0: "←",
+    1: "↓",
+    2: "→",
+    3: "↑"
+}
 
-    if terminated or truncated:
-        obs, info = env.reset()
+final_policy = {}
+
+print("\nPolitique finale apprise :")
+for s in range(16):
+    action, _ = model.predict(s, deterministic=True)
+    action = int(action)
+    final_policy[s] = action
+    print(f"État {s}: {ARROWS[action]} ({action})")
+
+grid_labels = []
+for r in range(4):
+    row = []
+    for c in range(4):
+        s = r * 4 + c
+        cell = desc[r][c]
+
+        if cell == "H":
+            row.append("H")
+        elif cell == "G":
+            row.append("G")
+        elif cell == "S":
+            row.append("S")
+        else:
+            row.append(ARROWS[final_policy[s]])
+    grid_labels.append(row)
+
+fig, ax = plt.subplots(figsize=(4, 4))
+ax.set_xlim(0, 4)
+ax.set_ylim(0, 4)
+ax.set_xticks([])
+ax.set_yticks([])
+ax.invert_yaxis()
+
+for r in range(4):
+    for c in range(4):
+        rect = plt.Rectangle((c, r), 1, 1, fill=False, edgecolor="black", linewidth=2)
+        ax.add_patch(rect)
+        ax.text(c + 0.5, r + 0.5, grid_labels[r][c],
+                ha="center", va="center", fontsize=20)
+
+plt.title("Politique finale apprise")
+plt.tight_layout()
+plt.show()
