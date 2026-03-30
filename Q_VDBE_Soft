@@ -1,0 +1,47 @@
+def Q_VCBE_softmax(environment, max_episodes, max_steps, start_epsilon, sigma, alpha, temperature, gamma):
+  n_actions = env_extreme.action_space.n
+  states_number = env_extreme.observation_space.n
+  Q_values = np.zeros([states_number, n_actions])+0.1
+  delta = 1/n_actions
+  epsilon = np.ones([states_number]) * start_epsilon
+  total_wins = 0
+  total_stalled = 0
+  politic = np.zeros([states_number, n_actions])
+  for t in range(max_episodes):
+    true_rewards = 0
+    state, _ = environment.reset()
+    done = False
+    step = 0
+    while not done and step < max_steps:
+      explore_value = np.random.rand()
+      if explore_value < epsilon[state]:
+        action = np.argsort(np.exp(Q_values[state]/temperature)/sum(np.exp(Q_values[state]/temperature)))[1]
+      else:
+        action = np.argmax(Q_values[state])
+      next_state, reward, done, _, _ = env_extreme.step(action)
+      step += 1
+      #if step == max_steps:
+        #reward -= 2
+        #total_stalled += 1
+      true_rewards += reward
+      projected_action = np.argmax(Q_values[next_state, :])
+      change = reward + gamma * Q_values[next_state, projected_action] - Q_values[state, action]
+      Q_values[state, action] += alpha * change
+      epsilon[state] = delta*(1-np.exp(-np.abs(alpha * change) / sigma))/(1+np.exp(-np.abs(alpha * change) / sigma)) + (1-delta) * epsilon[state]
+      epsilon[state] = np.max([epsilon[state], 0.1])
+      state = next_state
+      if reward == 1:
+        total_wins += 1
+    if t%10 == 0:
+      print("Statistics of episode ", t, " below:")
+      print("ε: ", epsilon)
+      print("Rewards: ", true_rewards)
+      print(total_wins)
+      
+    #print(step)
+    #print(reward)
+    #print(Q_values)
+  for j in range(states_number):
+    best_action = np.argmax(Q_values[j, :])
+    politic[j, best_action] = 1
+  return Q_values, politic, total_wins, total_stalled
