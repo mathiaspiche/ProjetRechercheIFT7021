@@ -1,17 +1,17 @@
 grids = {
-    "Peu de trous": [
+    "Deux trous sur seize": [
         "SFFF",
         "FHFF",
         "FFFF",
         "HFFG"
     ],
-    "Nombre moyen de trous": [
+    "Quatre trous sur seize": [
         "SFFF",
         "FHFH",
         "FFFH",
         "HFFG"
     ],
-    "Beaucoup de trous": [
+    "Neuf trous sur seize": [
         "SHFH",
         "FHFH",
         "FFHH",
