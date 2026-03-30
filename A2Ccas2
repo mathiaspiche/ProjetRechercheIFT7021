@@ -1,0 +1,258 @@
+import gymnasium as gym
+import matplotlib.pyplot as plt
+import numpy as np
+
+from stable_baselines3 import A2C
+from stable_baselines3.common.callbacks import BaseCallback, StopTrainingOnMaxEpisodes
+from stable_baselines3.common.env_util import make_vec_env
+from stable_baselines3.common.vec_env import VecMonitor
+
+
+class EpisodeRewardCallback(BaseCallback):
+    def __init__(self):
+        super().__init__()
+        self.episode_rewards = []
+
+    def _on_step(self) -> bool:
+        infos = self.locals.get("infos", [])
+        for info in infos:
+            if "episode" in info:
+                self.episode_rewards.append(info["episode"]["r"])
+        return True
+
+
+ARROWS = {
+    0: "←",
+    1: "↓",
+    2: "→",
+    3: "↑"
+}
+
+
+def moving_average(values, window=10):
+    smoothed = []
+    for i in range(len(values)):
+        start = max(0, i - window + 1)
+        smoothed.append(sum(values[start:i + 1]) / (i - start + 1))
+    return smoothed
+
+
+def extract_policy(model, desc):
+    n_rows = len(desc)
+    n_cols = len(desc[0])
+    final_policy = {}
+
+    for s in range(n_rows * n_cols):
+        action, _ = model.predict(s, deterministic=True)
+        final_policy[s] = int(action)
+
+    return final_policy
+
+
+def print_policy(desc, final_policy, title="Final policy"):
+    print(f"\n{title}")
+    n_rows = len(desc)
+    n_cols = len(desc[0])
+
+    for r in range(n_rows):
+        row_symbols = []
+        for c in range(n_cols):
+            s = r * n_cols + c
+            cell = desc[r][c]
+
+            if cell == "H":
+                row_symbols.append("H")
+            elif cell == "G":
+                row_symbols.append("G")
+            elif cell == "S":
+                row_symbols.append("S")
+            else:
+                row_symbols.append(ARROWS[final_policy[s]])
+        print(" ".join(row_symbols))
+
+
+def display_policy_grid(desc, final_policy, title="Learned final policy"):
+    n_rows = len(desc)
+    n_cols = len(desc[0])
+
+    grid_labels = []
+    for r in range(n_rows):
+        row = []
+        for c in range(n_cols):
+            s = r * n_cols + c
+            cell = desc[r][c]
+
+            if cell == "H":
+                row.append("H")
+            elif cell == "G":
+                row.append("G")
+            elif cell == "S":
+                row.append("S")
+            else:
+                row.append(ARROWS[final_policy[s]])
+        grid_labels.append(row)
+
+    fig, ax = plt.subplots(figsize=(4, 4))
+    ax.set_xlim(0, n_cols)
+    ax.set_ylim(0, n_rows)
+    ax.set_xticks([])
+    ax.set_yticks([])
+    ax.invert_yaxis()
+
+    for r in range(n_rows):
+        for c in range(n_cols):
+            rect = plt.Rectangle((c, r), 1, 1, fill=False, edgecolor="black", linewidth=2)
+            ax.add_patch(rect)
+            ax.text(c + 0.5, r + 0.5, grid_labels[r][c],
+                    ha="center", va="center", fontsize=20)
+
+    plt.title(title)
+    plt.tight_layout()
+    plt.show()
+
+
+def evaluate_goal_rate(model, desc, n_eval_episodes=200):
+    eval_env = gym.make(
+        "FrozenLake-v1",
+        desc=desc,
+        is_slippery=False,
+        reward_schedule=(1, 0, 0)
+    )
+
+    successes = []
+
+    for _ in range(n_eval_episodes):
+        obs, info = eval_env.reset()
+        done = False
+        truncated = False
+        total_reward = 0
+
+        while not done and not truncated:
+            action, _ = model.predict(obs, deterministic=True)
+            action = int(action) 
+            obs, reward, done, truncated, info = eval_env.step(action)
+            total_reward += reward
+
+        successes.append(1 if total_reward > 0 else 0)
+
+    eval_env.close()
+    return np.mean(successes)
+
+
+def train_on_grid(desc, grid_name, n_envs=8, max_episodes=1250, window=10):
+    callback_max_episodes = StopTrainingOnMaxEpisodes(
+        max_episodes=max_episodes,
+        verbose=1
+    )
+    reward_callback = EpisodeRewardCallback()
+
+    train_env = make_vec_env(
+        "FrozenLake-v1",
+        n_envs=n_envs,
+        env_kwargs={
+            "desc": desc,
+            "is_slippery": False,
+            "reward_schedule": (1, 0, 0)
+        }
+    )
+    train_env = VecMonitor(train_env)
+
+    model = A2C(
+        "MlpPolicy",
+        train_env,
+        n_steps=15,
+        gamma=0.99,
+        ent_coef=0.01,
+        use_rms_prop=True,
+        normalize_advantage=True,
+        verbose=1,
+        stats_window_size=10
+    )
+
+    model.learn(
+        total_timesteps=int(1e10),
+        callback=[reward_callback, callback_max_episodes]
+    )
+
+    final_policy = extract_policy(model, desc)
+    goal_rate = evaluate_goal_rate(model, desc, n_eval_episodes=200)
+    smoothed_rewards = moving_average(reward_callback.episode_rewards, window=window)
+
+    print_policy(desc, final_policy, title=f"Final policy for {grid_name}")
+
+    train_env.close()
+
+    return {
+        "grid_name": grid_name,
+        "desc": desc,
+        "model": model,
+        "episode_rewards": reward_callback.episode_rewards,
+        "smoothed_rewards": smoothed_rewards,
+        "goal_rate": goal_rate,
+        "final_policy": final_policy
+    }
+
+
+def plot_all_smoothed_rewards(results):
+    plt.figure(figsize=(10, 6))
+
+    for result in results:
+        episodes = np.arange(1, len(result["smoothed_rewards"]) + 1)
+        plt.plot(episodes, result["smoothed_rewards"], label=result["grid_name"])
+
+    plt.xlabel("Épisode")
+    plt.ylabel("Récompense cumulée moyenne (lissée)")
+    plt.title("Récompense cumulée par épisode (moyenne glissante)")
+    plt.grid(True)
+    plt.legend()
+    plt.tight_layout()
+    plt.show()
+
+
+
+grids = {
+    "Peu de trous": [
+        "SFFF",
+        "FHFF",
+        "FFFF",
+        "HFFG"
+    ],
+    "Nombre moyen de trous": [
+        "SFFF",
+        "FHFH",
+        "FFFH",
+        "HFFG"
+    ],
+    "Beaucoup de trous": [
+        "SHFH",
+        "FHFH",
+        "FFHH",
+        "HFFG"
+    ]
+}
+
+n_envs = 8
+max_episodes = 1250
+window = 10
+
+results = []
+
+for grid_name, desc in grids.items():
+    result = train_on_grid(
+        desc=desc,
+        grid_name=grid_name,
+        n_envs=n_envs,
+        max_episodes=max_episodes,
+        window=window
+    )
+    results.append(result)
+    
+plot_all_smoothed_rewards(results)
+
+
+for result in results:
+    display_policy_grid(
+        result["desc"],
+        result["final_policy"],
+        title=f"Politique finale - {result['grid_name']}"
+    )
