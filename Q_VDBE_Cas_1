@@ -9,7 +9,7 @@ env_0 = gym.make('FrozenLake-v1',
                  map_name="zig_zag",
                  is_slippery=False,
                  success_rate=90/100,
-                 reward_schedule=(1, -1, -1/(16**2))
+                 reward_schedule=(1, -1, -0.1)
                  )
 
 env_1 = gym.make('FrozenLake-v1',
@@ -17,7 +17,7 @@ env_1 = gym.make('FrozenLake-v1',
                  map_name="zig_zag",
                  is_slippery=True,
                  success_rate=1.0/2.0,
-                 reward_schedule=(1, -1, -1/(16**2))
+                 reward_schedule=(1, -1, -0.1)
                  )
 
 env_0 = [env_0, env_1]
