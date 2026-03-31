@@ -1,8 +1,8 @@
 import numpy as np
 import gymnasium as gym
 from matplotlib import pyplot as plt
-import grillecas2
-import Q_VDBE_Soft
+from grillecas2 import grids
+from Q_VDBE_Soft import Q_VDBE_Softmax
 
 
 env_0 = gym.make('FrozenLake-v1', desc=grids["Deux trous sur seize"], map_name="zig_zag", is_slippery=False, success_rate=90/100, reward_schedule=(1, -1, -1/(16**2)) )
@@ -33,10 +33,15 @@ alpha = 0.4
 temperature = 1
 gamma = 0.9
 
+n_actions = env[0].action_space.n
+states_number = env[0].observation_space.n
+average_politics = np.zeros([len(env), states_number, n_actions])
+
 for iteration in range(len(env)):
   rew = np.zeros([n_trainings, n_episodes])
+  policies = np.zeros([n_trainings, states_number, n_actions])
   for i in range(n_trainings):
-    _, _, _, _, rew[i], _ = Q_VCBE_softmax(env[iteration], n_episodes, max_steps, start_epsilon, sigma, alpha, temperature, gamma)
+    _, policies[i, :, :], _, _, rew[i], _ = Q_VDBE_softmax(env[iteration], n_episodes, max_steps, start_epsilon, sigma, alpha, temperature, gamma)
   average_rewards[iteration] = np.average(rew, 0)
 
 plt.plot(np.transpose(average_rewards))
@@ -45,3 +50,5 @@ plt.xlabel("Épisode")
 plt.ylabel("Récompenses moyennes (sur 100 itérations)")
 plt.legend(["Deux trous sur seize", "Quatre trous sur seize", "Neuf trous sur seize"])
 plt.show()
+
+print("Average politics: ", average_politics)
