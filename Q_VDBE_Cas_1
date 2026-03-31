@@ -1,0 +1,60 @@
+import numpy as np
+import gymnasium as gym
+from matplotlib import pyplot as plt
+from Cartes_2 import loop_path
+from Q_VDBE_Soft import Q_VDBE_softmax
+
+env_0 = gym.make('FrozenLake-v1',
+                 desc=loop_path,
+                 map_name="zig_zag",
+                 is_slippery=False,
+                 success_rate=90/100,
+                 reward_schedule=(1, -1, -1/(16**2))
+                 )
+
+env_1 = gym.make('FrozenLake-v1',
+                 desc=loop_path,
+                 map_name="zig_zag",
+                 is_slippery=True,
+                 success_rate=1.0/2.0,
+                 reward_schedule=(1, -1, -1/(16**2))
+                 )
+
+env_0 = [env_0, env_1]
+n_trainings = 100
+
+n_episodes = 1000
+max_steps = 100
+start_epsilon = 0.99
+sigma = 10
+alpha = 0.4
+temperature = 1
+gamma = 0.9
+
+n_actions = env_0[0].action_space.n
+states_number = env_0[0].observation_space.n
+average_politics = np.zeros([len(env_0), states_number, n_actions])
+average_rewards = np.zeros([len(env_0), n_episodes])
+
+for iteration in range(len(env_0)):
+  rew = np.zeros([n_trainings, n_episodes])
+  policies = np.zeros([n_trainings, states_number, n_actions])
+  for i in range(n_trainings):
+    val, policies[i, :, :], win, sta, rew[i], cha = Q_VCBE_softmax(env_0[iteration], 
+                                                                   n_episodes,
+                                                                   max_steps, 
+                                                                   start_epsilon,
+                                                                   sigma, alpha,
+                                                                   temperature, 
+                                                                   gamma)
+  average_rewards[iteration] = np.average(rew, 0)
+  average_politics[iteration] = np.average(policies, 0)
+
+
+plt.plot(np.transpose(average_rewards))
+plt.title("Récompenses moyennes par épisode pour le cas d'étude #1 avec l'algorithme Q-VDBE-Softmax", wrap=True)
+plt.xlabel("Épisode")
+plt.ylabel("Récompenses moyennes (sur 100 itérations)")
+plt.legend(["Sans glissement", "success_rate = 1/2"])
+plt.show()
+print("Ave: ", average_politics, " end")
