@@ -1,10 +1,24 @@
-import gymnasium as gym
 import matplotlib.pyplot as plt
-
+import numpy as np
 from stable_baselines3 import A2C
+from stable_baselines3.common.callbacks import BaseCallback, StopTrainingOnMaxEpisodes
 from stable_baselines3.common.env_util import make_vec_env
-from stable_baselines3.common.callbacks import BaseCallback
 from stable_baselines3.common.vec_env import VecMonitor
+
+
+desc = ["SHGF", "FHHF", "FHHF", "FFFF"]
+
+N_ENVS = 8
+max_epi = 1250
+reward_schedule = (1, -1, -0.01)
+average = 100
+
+fleches = {
+    0: "←",
+    1: "↓",
+    2: "→",
+    3: "↑"
+}
 
 
 class EpisodeRewardCallback(BaseCallback):
@@ -20,120 +34,165 @@ class EpisodeRewardCallback(BaseCallback):
         for info in infos:
             if "episode" in info:
                 self.episode_count += 1
-                ep_reward = info["episode"]["r"]   # cumulative reward of that episode
                 self.episode_numbers.append(self.episode_count)
-                self.episode_rewards.append(ep_reward)
+                self.episode_rewards.append(info["episode"]["r"])
 
         return True
 
 
-desc = [
-    "SFFF",
-    "FHFH",
-    "FFFH",
-    "HFFG"
-]
+def average_by_blocks(values, block_size=average):
+    block_means = []
+    block_ends = []
 
-train_env = make_vec_env(
-    "FrozenLake-v1",
-    n_envs=1,
-    env_kwargs={
-        "desc": desc,
-        "is_slippery": True,
-        "success_rate": 1.0
-    }
-)
+    for start in range(0, len(values), block_size):
+        block = values[start:start + block_size]
+        if len(block) > 0:
+            block_means.append(np.mean(block))
+            block_ends.append(start + len(block))
 
-train_env = VecMonitor(train_env)
+    return block_ends, block_means
 
-model = A2C(
-    "MlpPolicy",
-    train_env,
-    n_steps=100,
-    gamma=0.99,
-    ent_coef=0,
-    use_rms_prop=True,
-    normalize_advantage=True,
-    verbose=1,
-    stats_window_size=10
-)
 
-callback = EpisodeRewardCallback()
+def extract_policy(model, desc):
+    n_rows = len(desc)
+    n_cols = len(desc[0])
+    final_policy = {}
 
-model.learn(total_timesteps=50000, callback=callback)
-window = 10
-smoothed = []
-for i in range(len(callback.episode_rewards)):
-    start = max(0, i - window + 1)
-    smoothed.append(sum(callback.episode_rewards[start:i+1]) / (i - start + 1))
+    for s in range(n_rows * n_cols):
+        action, _ = model.predict(s, deterministic=True)
+        final_policy[s] = int(action)
 
-plt.figure(figsize=(8, 5))
-plt.plot(callback.episode_numbers, smoothed)
-plt.xlabel("Episode")
-plt.ylabel("Average cumulative reward")
-plt.title("Smoothed cumulative reward over training")
-plt.grid(True)
-plt.show()
-model.save("a2c_frozenlake")
+    return final_policy
 
-del model
-model = A2C.load("a2c_frozenlake")
+def display_policy_grid(desc, final_policy, title="Politique finale"):
+    n_rows = len(desc)
+    n_cols = len(desc[0])
 
-env = gym.make(
-    "FrozenLake-v1",
+    grid_labels = []
+    for r in range(n_rows):
+        row = []
+        for c in range(n_cols):
+            s = r * n_cols + c
+            cell = desc[r][c]
+
+            if cell == "H":
+                row.append("H")
+            elif cell == "G":
+                row.append("G")
+            elif cell == "S":
+                row.append(f"S{fleches[final_policy[s]]}")
+            else:
+                row.append(fleches[final_policy[s]])
+        grid_labels.append(row)
+
+    fig, ax = plt.subplots(figsize=(4, 4))
+    ax.set_xlim(0, n_cols)
+    ax.set_ylim(0, n_rows)
+    ax.set_xticks([])
+    ax.set_yticks([])
+    ax.invert_yaxis()
+
+    for r in range(n_rows):
+        for c in range(n_cols):
+            rect = plt.Rectangle((c, r), 1, 1, fill=False, edgecolor="black", linewidth=2)
+            ax.add_patch(rect)
+            ax.text(
+                c + 0.5, r + 0.5, grid_labels[r][c],
+                ha="center", va="center", fontsize=18
+            )
+
+    plt.title(title)
+    plt.tight_layout()
+    plt.show()
+
+
+def plot_training_rewards_together(rewards_1, rewards_2, label1, label2, block_size=100):
+    ep1, avg1 = average_by_blocks(rewards_1, block_size=block_size)
+    ep2, avg2 = average_by_blocks(rewards_2, block_size=block_size)
+
+    plt.figure(figsize=(8, 5))
+    plt.plot(ep1, avg1, label=label1)
+    plt.plot(ep2, avg2, label=label2)
+    plt.xlabel("Épisode")
+    plt.ylabel("Récompense cumulative moyenne de l'algorithme A2C pour le cas 1")
+    plt.title(f"Récompense cumulative moyenne sur {block_size} épisodes")
+    plt.grid(True)
+    plt.legend()
+    plt.tight_layout()
+    plt.show()
+
+
+def train_case(case_name, desc, is_slippery, success_rate, reward_schedule):
+    print(f"\n===== {case_name} =====")
+
+    train_env = make_vec_env(
+        "FrozenLake-v1",
+        n_envs=N_ENVS,
+        env_kwargs={
+            "desc": desc,
+            "is_slippery": is_slippery,
+            "success_rate": success_rate,
+            "reward_schedule": reward_schedule
+        }
+    )
+    train_env = VecMonitor(train_env)
+
+    reward_callback = EpisodeRewardCallback()
+    stop_callback = StopTrainingOnMaxEpisodes(
+        max_episodes=max_epi,
+        verbose=1
+    )
+
+    model = A2C(
+        "MlpPolicy",
+        train_env,
+        n_steps=15,
+        gamma=0.99,
+        ent_coef=0.01,
+        use_rms_prop=True,
+        normalize_advantage=True,
+        verbose=1,
+        stats_window_size=10
+    )
+
+    model.learn(
+        total_timesteps=int(1e10),
+        callback=[reward_callback, stop_callback]
+    )
+
+    train_env.close()
+
+    return model, reward_callback
+
+
+model_slip, callback_slip = train_case(
+    case_name="Case 1: is_slippery=True, success_rate=1/2",
     desc=desc,
     is_slippery=True,
-    success_rate=1.0 / 3.0,
-    render_mode="human"
+    success_rate=1.0 / 2.0,
+    reward_schedule=reward_schedule
 )
 
-ARROWS = {
-    0: "←",
-    1: "↓",
-    2: "→",
-    3: "↑"
-}
+policy_slip = extract_policy(model_slip, desc)
+display_policy_grid(desc, policy_slip, title="Policy learned - Case 1 (slippery)")
 
-final_policy = {}
 
-print("\nPolitique finale apprise :")
-for s in range(16):
-    action, _ = model.predict(s, deterministic=True)
-    action = int(action)
-    final_policy[s] = action
-    print(f"État {s}: {ARROWS[action]} ({action})")
+model_noslip, callback_noslip = train_case(
+    case_name="Case 2: is_slippery=False, success_rate=1",
+    desc=desc,
+    is_slippery=False,
+    success_rate=1.0,
+    reward_schedule=reward_schedule
+)
 
-grid_labels = []
-for r in range(4):
-    row = []
-    for c in range(4):
-        s = r * 4 + c
-        cell = desc[r][c]
+policy_noslip = extract_policy(model_noslip, desc)
+display_policy_grid(desc, policy_noslip, title="non-slippery")
 
-        if cell == "H":
-            row.append("H")
-        elif cell == "G":
-            row.append("G")
-        elif cell == "S":
-            row.append("S")
-        else:
-            row.append(ARROWS[final_policy[s]])
-    grid_labels.append(row)
 
-fig, ax = plt.subplots(figsize=(4, 4))
-ax.set_xlim(0, 4)
-ax.set_ylim(0, 4)
-ax.set_xticks([])
-ax.set_yticks([])
-ax.invert_yaxis()
-
-for r in range(4):
-    for c in range(4):
-        rect = plt.Rectangle((c, r), 1, 1, fill=False, edgecolor="black", linewidth=2)
-        ax.add_patch(rect)
-        ax.text(c + 0.5, r + 0.5, grid_labels[r][c],
-                ha="center", va="center", fontsize=20)
-
-plt.title("Politique finale apprise")
-plt.tight_layout()
-plt.show()
+plot_training_rewards_together(
+    callback_slip.episode_rewards,
+    callback_noslip.episode_rewards,
+    label1="slippery=True, success_rate=1/2",
+    label2="slippery=False",
+    block_size=average
+)
