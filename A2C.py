@@ -38,8 +38,6 @@ class EpisodeRewardCallback(BaseCallback):
         return True
 
 
-# ─── Utilities ───────────────────────────────────────────────────────────────
-
 def average_by_blocks(values, block_size=average):
     block_means, block_ends = [], []
     for start in range(0, len(values), block_size):
