@@ -6,7 +6,7 @@ from A2C import fleches, reward_schedule, max_episodes
 from Cartes_Fred import loop_path
 from grillescas2 import grids as grids2
 from grillescas3 import grids as grids3
-from A2C import average, train_on_grid
+from A2C import average
 
 
 def average_by_blocks(values, block_size=average):
@@ -234,8 +234,8 @@ if __name__ == "__main__":
         reward_schedule=reward_schedule
     )
 
-    policy_slip = mcts_slip.extract_policy(desc)
-    display_policy_grid(desc, policy_slip, title="Optimized MCTS - slippery")
+    policy_slip = mcts_slip.extract_policy(loop_path)
+    display_policy_grid(loop_path, policy_slip, title="Optimized MCTS - slippery")
 
     mcts_noslip, rewards_noslip = train_case(
         cas="Case 2: is_slippery=False, success_rate=1",
@@ -245,8 +245,8 @@ if __name__ == "__main__":
         reward_schedule=reward_schedule
     )
 
-    policy_noslip = mcts_noslip.extract_policy(desc)
-    display_policy_grid(desc, policy_noslip, title="Optimized MCTS - non-slippery")
+    policy_noslip = mcts_noslip.extract_policy(loop_path)
+    display_policy_grid(loop_path, policy_noslip, title="Optimized MCTS - non-slippery")
 
     plot_training_rewards_together(
         rewards_slip,
@@ -264,8 +264,8 @@ if __name__ == "__main__":
         success_rate=1.0,
         reward_schedule=reward_schedule
     )
-    policy_d1 = mcts_d1.extract_policy(desc1)
-    display_policy_grid(desc1, policy_d1, title="Optimized MCTS - desc1")
+    policy_d1 = mcts_d1.extract_policy(grids2[0])
+    display_policy_grid(grids2[0], policy_d1, title="Optimized MCTS - desc1")
 
     mcts_d2, rewards_d2 = train_case(
         cas="desc2",
@@ -274,8 +274,8 @@ if __name__ == "__main__":
         success_rate=1.0,
         reward_schedule=reward_schedule
     )
-    policy_d2 = mcts_d2.extract_policy(desc2)
-    display_policy_grid(desc2, policy_d2, title="Optimized MCTS - desc2")
+    policy_d2 = mcts_d2.extract_policy(grids2[1])
+    display_policy_grid(grids2[1], policy_d2, title="Optimized MCTS - desc2")
 
     mcts_d3, rewards_d3 = train_case(
         cas="desc3",
@@ -284,8 +284,8 @@ if __name__ == "__main__":
         success_rate=1.0,
         reward_schedule=reward_schedule
     )
-    policy_d3 = mcts_d3.extract_policy(desc3)
-    display_policy_grid(desc3, policy_d3, title="Optimized MCTS - desc3")
+    policy_d3 = mcts_d3.extract_policy(grids2[2])
+    display_policy_grid(grids2[2], policy_d3, title="Optimized MCTS - desc3")
 
     plot_training_rewards_triple(
         rewards_d1, rewards_d2, rewards_d3,
@@ -304,8 +304,8 @@ if __name__ == "__main__":
         success_rate=1.0,
         reward_schedule=reward_schedule
     )
-    policy_d4 = mcts_d4.extract_policy(desc4) #
-    display_policy_grid(desc4, policy_d4, title="Optimized MCTS - desc4")
+    policy_d4 = mcts_d4.extract_policy(grids3[0]) #
+    display_policy_grid(grids3[0], policy_d4, title="Optimized MCTS - desc4")
 
     mcts_d5, rewards_d5 = train_case(
         cas="desc5 - is_slippery=True, success_rate=1/2",
@@ -314,8 +314,8 @@ if __name__ == "__main__":
         success_rate=1.0,
         reward_schedule=reward_schedule
     )
-    policy_d5 = mcts_d5.extract_policy(desc5)
-    display_policy_grid(desc5, policy_d5, title="Optimized MCTS - desc5")
+    policy_d5 = mcts_d5.extract_policy(grids3[1])
+    display_policy_grid(grids3[1], policy_d5, title="Optimized MCTS - desc5")
 
     mcts_d6, rewards_d6 = train_case(
         cas="desc6 - is_slippery=True, success_rate=1/2",
@@ -324,8 +324,8 @@ if __name__ == "__main__":
         success_rate=1.0,
         reward_schedule=reward_schedule
     )
-    policy_d6 = mcts_d6.extract_policy(desc6)
-    display_policy_grid(desc6, policy_d6, title="Optimized MCTS - desc6")
+    policy_d6 = mcts_d6.extract_policy(grids3[2])
+    display_policy_grid(grids3[2], policy_d6, title="Optimized MCTS - desc6")
 
     plot_training_rewards_triple(
         rewards_d4, rewards_d5, rewards_d6,
