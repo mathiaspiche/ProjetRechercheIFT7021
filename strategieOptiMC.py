@@ -2,18 +2,12 @@ import gymnasium as gym
 import matplotlib.pyplot as plt
 import numpy as np
 from collections import defaultdict
-from A2C import fleches, reward_schedule, max_epi
+from A2C import fleches, reward_schedule, max_episodes
+from Cartes_Fred import loop_path
+from grillescas2 import grids as grids2
+from grillescas3 import grids as grids3
+from A2C import average, train_on_grid
 
-
-desc = ["SHGF", "FHHF", "FHHF", "FFFF"]
-desc1=["SFFF","FHFF","FFFF","HFFG"]    # peu de trous
-desc2 = ["SFFF","FHFH","FFFH", "HFFG"] # nombre moyen de trous
-desc3 =["SHHH","FHHH","FFHH","HFFG"]   # beaucoup de trous
-desc4 =["SFFF","FHHF","FHHF","FFFG" ]  # trous centres
-desc5= ["SFFH","FHFH","FFFH","HFFG"]   # trous pres du chemin direct
-desc6 = ["SFFH","FFFF","HFFH","HFFG"]  # trous sur les cotes
-
-average = 100
 
 def average_by_blocks(values, block_size=average):
     block_means = []
@@ -215,13 +209,13 @@ def train_case(cas, desc, is_slippery, success_rate, reward_schedule):
 
     episode_rewards = []
 
-    for episode in range(1, max_epi + 1):
+    for episode in range(1, max_episodes + 1):
         ep_reward = mcts.run_episode()
         episode_rewards.append(ep_reward)
 
         if episode % average == 0:
             print(
-                f"Épisode {episode}/{max_epi} | "
+                f"Épisode {episode}/{max_episodes} | "
                 f"récompense moyenne = {np.mean(episode_rewards[-average:]):.3f}"
             )
 
@@ -230,9 +224,11 @@ def train_case(cas, desc, is_slippery, success_rate, reward_schedule):
 
 
 if __name__ == "__main__":
+
+    # Cas 1
     mcts_slip, rewards_slip = train_case(
         cas="Case 1: is_slippery=True, success_rate=1/2",
-        desc=desc,
+        desc=loop_path,
         is_slippery=True,
         success_rate=1.0 / 2.0,
         reward_schedule=reward_schedule
@@ -243,7 +239,7 @@ if __name__ == "__main__":
 
     mcts_noslip, rewards_noslip = train_case(
         cas="Case 2: is_slippery=False, success_rate=1",
-        desc=desc,
+        desc=loop_path,
         is_slippery=False,
         success_rate=1.0,
         reward_schedule=reward_schedule
@@ -260,9 +256,10 @@ if __name__ == "__main__":
         block_size=average
     )
 
+    # Cas 2
     mcts_d1, rewards_d1 = train_case(
         cas="desc1",
-        desc=desc1,
+        desc=grids2[0],
         is_slippery=False,
         success_rate=1.0,
         reward_schedule=reward_schedule
@@ -272,7 +269,7 @@ if __name__ == "__main__":
 
     mcts_d2, rewards_d2 = train_case(
         cas="desc2",
-        desc=desc2,
+        desc=grids2[1],
         is_slippery=False,
         success_rate=1.0,
         reward_schedule=reward_schedule
@@ -282,7 +279,7 @@ if __name__ == "__main__":
 
     mcts_d3, rewards_d3 = train_case(
         cas="desc3",
-        desc=desc3,
+        desc=grids2[2],
         is_slippery=False,
         success_rate=1.0,
         reward_schedule=reward_schedule
@@ -297,9 +294,12 @@ if __name__ == "__main__":
         block_size=average
     )
 
+
+    # Cas 3
+
     mcts_d4, rewards_d4 = train_case(
         cas="desc4 - is_slippery=True, success_rate=1/2",
-        desc=desc4,
+        desc=grids3[0],
         is_slippery=False,
         success_rate=1.0,
         reward_schedule=reward_schedule
@@ -309,7 +309,7 @@ if __name__ == "__main__":
 
     mcts_d5, rewards_d5 = train_case(
         cas="desc5 - is_slippery=True, success_rate=1/2",
-        desc=desc5,
+        desc=grids3[1],
         is_slippery=False,
         success_rate=1.0,
         reward_schedule=reward_schedule
@@ -319,7 +319,7 @@ if __name__ == "__main__":
 
     mcts_d6, rewards_d6 = train_case(
         cas="desc6 - is_slippery=True, success_rate=1/2",
-        desc=desc6,
+        desc=grids3[2],
         is_slippery=False,
         success_rate=1.0,
         reward_schedule=reward_schedule
