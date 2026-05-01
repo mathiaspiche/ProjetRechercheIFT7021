@@ -6,7 +6,7 @@ from Q_VDBE_Soft import Q_VDBE_softmax
 
 env_0 = gym.make('FrozenLake-v1',
                  desc=loop_path,
-                 map_name="zig_zag",
+                 map_name="loop_no_slip",
                  is_slippery=False,
                  success_rate=90/100,
                  reward_schedule=(1, -1, -0.1)
@@ -14,15 +14,32 @@ env_0 = gym.make('FrozenLake-v1',
 
 env_1 = gym.make('FrozenLake-v1',
                  desc=loop_path,
-                 map_name="zig_zag",
+                 map_name="loop_50_slip",
                  is_slippery=True,
                  success_rate=1.0/2.0,
                  reward_schedule=(1, -1, -0.1)
                  )
 
 env_0 = [env_0, env_1]
-n_trainings = 100
 
+superior_policy = np.array([[0,    1,    0,    0   ],
+                            [0.25, 0.25, 0.25, 0.25],
+                            [0.25, 0.25, 0.25, 0.25],
+                            [1,    0,    0,    0   ],
+                            [0,    1,    0,    0   ],
+                            [0.25, 0.25, 0.25, 0.25],
+                            [0.25, 0.25, 0.25, 0.25],
+                            [0,    0,    0,    1   ],
+                            [0,    1,    0,    0   ],
+                            [0.25, 0.25, 0.25, 0.25],
+                            [0.25, 0.25, 0.25, 0.25],
+                            [0,    0,    0,    1   ],
+                            [0,    0,    1,    0   ],
+                            [0,    0,    1,    0   ],
+                            [0,    0,    1,    0   ],
+                            [0,    0,    0,    1   ]])
+
+n_trainings = 100
 n_episodes = 1000
 max_steps = 100
 start_epsilon = 0.99
@@ -34,7 +51,7 @@ gamma = 0.9
 n_actions = env_0[0].action_space.n
 states_number = env_0[0].observation_space.n
 average_politics = np.zeros([len(env_0), states_number, n_actions])
-average_rewards = np.zeros([len(env_0), n_episodes])
+average_rewards = np.zeros([len(env_0)*2, n_episodes])
 
 for iteration in range(len(env_0)):
   rew = np.zeros([n_trainings, n_episodes])
@@ -50,11 +67,19 @@ for iteration in range(len(env_0)):
   average_rewards[iteration] = np.average(rew, 0)
   average_politics[iteration] = np.average(policies, 0)
 
+for iteration in range(len(env_0)):
+  rew = np.zeros([n_trainings, n_episodes])
+  policies = np.zeros([n_trainings, states_number, n_actions])
+  for i in range(n_trainings):
+    win, sta, rew[i] = defined_greedy(env_0[iteration], superior_policy,
+                                      n_episodes, max_steps)
+
+  average_rewards[iteration+len(env_0)] = np.average(rew, 0)
 
 plt.plot(np.transpose(average_rewards))
 plt.title("Récompenses moyennes par épisode pour le cas d'étude #1 avec l'algorithme Q-VDBE-Softmax", wrap=True)
 plt.xlabel("Épisode")
 plt.ylabel("Récompenses moyennes (sur 100 itérations)")
-plt.legend(["Sans glissement", "success_rate = 1/2"])
+plt.legend(["Sans glissement, Q_VDBE", "success_rate = 1/2, Q_VDBE","Sans glissement, greedy avec bonne politique", "success_rate=1/2, greedy avec bonne politique"])
 plt.show()
 print("Ave: ", average_politics, " end")
