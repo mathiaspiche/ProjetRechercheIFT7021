@@ -1,22 +1,15 @@
 import gymnasium as gym
 import matplotlib.pyplot as plt
 import numpy as np
-
 from stable_baselines3 import A2C
 from stable_baselines3.common.callbacks import BaseCallback, StopTrainingOnMaxEpisodes
 from stable_baselines3.common.env_util import make_vec_env
 from stable_baselines3.common.vec_env import VecMonitor
 
-fleches = {
-    0: "←",
-    1: "↓",
-    2: "→",
-    3: "↑"
-}
+from grillescas2 import grids
+from A2C import reward_schedule, fleches, max_epi, N_ENVS
 
-
-REWARD_SCHEDULE = (1, -1, -0.01)
-
+max_episodes = max_epi
 
 class EpisodeRewardCallback(BaseCallback):
     def __init__(self):
@@ -108,7 +101,7 @@ def evaluate_goal_rate(model, desc, n_eval_episodes=200):
         "FrozenLake-v1",
         desc=desc,
         is_slippery=False,
-        reward_schedule=REWARD_SCHEDULE
+        reward_schedule=reward_schedule
     )
 
     successes = []
@@ -151,7 +144,7 @@ def plot_all_training_rewards(results, block_size=100):
     plt.show()
 
 
-def train_on_grid(desc, grid_name, n_envs=8, max_episodes=1250):
+def train_on_grid(desc, grid_name, N_ENVS=N_ENVS, max_episodes=1250):
     callback_max_episodes = StopTrainingOnMaxEpisodes(
         max_episodes=max_episodes,
         verbose=1
@@ -160,11 +153,11 @@ def train_on_grid(desc, grid_name, n_envs=8, max_episodes=1250):
 
     train_env = make_vec_env(
         "FrozenLake-v1",
-        n_envs=n_envs,
+        N_ENVS=N_ENVS,
         env_kwargs={
             "desc": desc,
             "is_slippery": False,
-            "reward_schedule": REWARD_SCHEDULE
+            "reward_schedule": reward_schedule
         }
     )
     train_env = VecMonitor(train_env)
@@ -202,28 +195,11 @@ def train_on_grid(desc, grid_name, n_envs=8, max_episodes=1250):
 
 
 grilles = {
-    "Peu de trous": [
-        "SFFF",
-        "FHFF",
-        "FFFF",
-        "HFFG"
-    ],
-    "Nombre moyen de trous": [
-        "SFFF",
-        "FHFH",
-        "FFFH",
-        "HFFG"
-    ],
-    "Beaucoup de trous": [
-        "SHHH",
-        "FHHH",
-        "FFHH",
-        "HFFG"
-    ]
+    "grid_0": grids[0],
+    "grid_1": grids[1],
+    "grid_2": grids[2]
 }
 
-n_envs = 8
-max_episodes = 1250
 block_size = 100
 
 results = []
@@ -232,7 +208,7 @@ for grid_name, desc in grilles.items():
     result = train_on_grid(
         desc=desc,
         grid_name=grid_name,
-        n_envs=n_envs,
+        N_ENVS=N_ENVS,
         max_episodes=max_episodes
     )
     results.append(result)

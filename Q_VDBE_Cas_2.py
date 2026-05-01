@@ -1,8 +1,8 @@
 import numpy as np
 import gymnasium as gym
 from matplotlib import pyplot as plt
-from grillecas2 import grids
-from Q_VDBE_Soft import Q_VDBE_Softmax
+from grillescas2 import grids
+from Q_VDBE_Soft import Q_VCBE_softmax
 
 
 env_0 = gym.make('FrozenLake-v1', desc=grids["Deux trous sur seize"], map_name="zig_zag", is_slippery=False, success_rate=90/100, reward_schedule=(1, -1, -1/(16**2)) )
@@ -41,7 +41,7 @@ for iteration in range(len(env)):
   rew = np.zeros([n_trainings, n_episodes])
   policies = np.zeros([n_trainings, states_number, n_actions])
   for i in range(n_trainings):
-    _, policies[i, :, :], _, _, rew[i], _ = Q_VDBE_softmax(env[iteration], n_episodes, max_steps, start_epsilon, sigma, alpha, temperature, gamma)
+    _, policies[i, :, :], _, _, rew[i], _ = Q_VCBE_softmax(env[iteration], n_episodes, max_steps, start_epsilon, sigma, alpha, temperature, gamma)
   average_rewards[iteration] = np.average(rew, 0)
 
 plt.plot(np.transpose(average_rewards))

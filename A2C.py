@@ -4,9 +4,9 @@ from stable_baselines3 import A2C
 from stable_baselines3.common.callbacks import BaseCallback, StopTrainingOnMaxEpisodes
 from stable_baselines3.common.env_util import make_vec_env
 from stable_baselines3.common.vec_env import VecMonitor
+from Cartes_Fred import loop_path
 
-
-desc = ["SHGF", "FHHF", "FHHF", "FFFF"]
+desc = loop_path
 
 N_ENVS = 8
 max_epi = 1250

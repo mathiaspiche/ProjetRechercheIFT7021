@@ -1,3 +1,10 @@
+import numpy as np
+import gymnasium as gym
+from matplotlib import pyplot as plt
+from grillescas3 import grids
+from Q_VDBE_Soft import Q_VCBE_softmax
+
+
 env_3_0 = gym.make('FrozenLake-v1',
                    desc=grids["Trous centrés"],
                    map_name="Centre",
@@ -19,13 +26,7 @@ env_3_2 = gym.make('FrozenLake-v1',
                    reward_schedule=(1, -1, -1/(16**2))
                    )
 
-import numpy as np
-import gymnasium as gym
-from matplotlib import pyplot as plt
-from grillecas3 import grids
-from Q_VDBE_Soft import Q_VDBE_Softmax
-
-env_3 = [env_3_0, env_3_1, env_3_2]
+env = [env_3_0, env_3_1, env_3_2]
 n_trainings = 100
 average_rewards = np.zeros([len(env), n_trainings])
 n_episodes = 100
@@ -44,7 +45,7 @@ for iteration in range(len(env)):
   rew = np.zeros([n_trainings, n_episodes])
   policies = np.zeros([n_trainings, states_number, n_actions])
   for i in range(n_trainings):
-    val, policies[i, :, :], win, sta, rew[i], cha = Q_VCBE_softmax(env_3[iteration], 
+    val, policies[i, :, :], win, sta, rew[i], cha = Q_VCBE_softmax(env[iteration],
                                                                    n_episodes,
                                                                    max_steps, 
                                                                    start_epsilon,

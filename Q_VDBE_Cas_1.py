@@ -1,8 +1,8 @@
 import numpy as np
 import gymnasium as gym
 from matplotlib import pyplot as plt
-from Cartes_2 import loop_path
-from Q_VDBE_Soft import Q_VDBE_softmax
+from Cartes_Fred import loop_path
+from Q_VDBE_Soft import Q_VCBE_softmax
 
 env_0 = gym.make('FrozenLake-v1',
                  desc=loop_path,
@@ -47,6 +47,31 @@ sigma = 10
 alpha = 0.4
 temperature = 1
 gamma = 0.9
+
+def defined_greedy(env, policy, n_episodes, max_steps):
+    wins = 0
+    total_steps = 0
+    episode_rewards = np.zeros(n_episodes)
+
+    for ep in range(n_episodes):
+        state, _ = env.reset()
+        ep_reward = 0.0
+
+        for step in range(max_steps):
+            action = np.random.choice(env.action_space.n, p=policy[state])
+            state, reward, terminated, truncated, _ = env.step(action)
+            ep_reward += reward
+
+            if terminated or truncated:
+                if reward > 0:
+                    wins += 1
+                total_steps += step + 1
+                break
+
+        episode_rewards[ep] = ep_reward
+
+    avg_steps = total_steps / n_episodes
+    return wins, avg_steps, episode_rewards
 
 n_actions = env_0[0].action_space.n
 states_number = env_0[0].observation_space.n

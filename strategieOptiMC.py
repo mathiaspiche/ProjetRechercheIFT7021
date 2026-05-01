@@ -2,7 +2,7 @@ import gymnasium as gym
 import matplotlib.pyplot as plt
 import numpy as np
 from collections import defaultdict
-import time
+from A2C import fleches, reward_schedule, max_epi
 
 
 desc = ["SHGF", "FHHF", "FHHF", "FFFF"]
@@ -13,17 +13,7 @@ desc4 =["SFFF","FHHF","FHHF","FFFG" ]  # trous centres
 desc5= ["SFFH","FHFH","FFFH","HFFG"]   # trous pres du chemin direct
 desc6 = ["SFFH","FFFF","HFFH","HFFG"]  # trous sur les cotes
 
-max_epi = 10000
-reward_schedule = (1, -1, -0.01)
 average = 100
-
-fleches = {
-    0: "←",
-    1: "↓",
-    2: "→",
-    3: "↑"
-}
-
 
 def average_by_blocks(values, block_size=average):
     block_means = []
