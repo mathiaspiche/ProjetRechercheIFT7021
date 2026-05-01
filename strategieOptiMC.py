@@ -314,7 +314,7 @@ if __name__ == "__main__":
         success_rate=1.0,
         reward_schedule=reward_schedule
     )
-    policy_d4 = mcts_d4.extract_policy(desc4)
+    policy_d4 = mcts_d4.extract_policy(desc4) #
     display_policy_grid(desc4, policy_d4, title="Optimized MCTS - desc4")
 
     mcts_d5, rewards_d5 = train_case(
