@@ -82,7 +82,7 @@ for iteration in range(len(env_0)):
   rew = np.zeros([n_trainings, n_episodes])
   policies = np.zeros([n_trainings, states_number, n_actions])
   for i in range(n_trainings):
-    val, policies[i, :, :], win, sta, rew[i], cha = Q_VCBE_softmax(env_0[iteration], 
+    policies[i, :, :], win, sta, rew[i], cha = Q_VCBE_softmax(env_0[iteration],
                                                                    n_episodes,
                                                                    max_steps, 
                                                                    start_epsilon,
