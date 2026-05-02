@@ -2,7 +2,7 @@ import numpy as np
 import gymnasium as gym
 from matplotlib import pyplot as plt
 from grillescas2 import grids
-from Q_VDBE_Soft import Q_VCBE_softmax
+from Q_VDBE_Soft import Q_VDBE_softmax
 
 
 env_0 = gym.make('FrozenLake-v1', desc=grids["Deux trous sur seize"], map_name="zig_zag", is_slippery=False, success_rate=90/100, reward_schedule=(1, -1, -1/(16**2)) )
