@@ -113,7 +113,7 @@ class OptimizedMCTS:
         return final_policy
 
 
-def train_case(desc, is_slippery, success_rate, reward_schedule):
+def train_case_mct(desc, is_slippery, success_rate, reward_schedule):
     # Méthode prenant en entrée une configuration de grille, les paramètres is_slippery
     # et success_rate de Gymnasium et une fonction de récompense. Elle soutire la politique
     # obtenue après avoir fait plusieurs itérations de la stratégie et retourne, entre autres, les
@@ -146,7 +146,7 @@ def train_case(desc, is_slippery, success_rate, reward_schedule):
 if __name__ == "__main__":
     # Ici, on effectue les expériences et on imprime les figures désirées
     # Cas 1 : loop slippery vs non-slippery
-    mcts_slip, rewards_slip = train_case(
+    mcts_slip, rewards_slip = train_case_mct(
         cas="Case 1: is_slippery=True, success_rate=1/2",
         desc=loop_path,
         is_slippery=True,
@@ -156,7 +156,7 @@ if __name__ == "__main__":
     policy_slip = mcts_slip.extract_policy(loop_path)
     display_policy_grid(loop_path, policy_slip, title="Optimized MCTS - slippery")
 
-    mcts_noslip, rewards_noslip = train_case(
+    mcts_noslip, rewards_noslip = train_case_mct(
         cas="Case 2: is_slippery=False, success_rate=1",
         desc=loop_path,
         is_slippery=False,
@@ -178,7 +178,7 @@ if __name__ == "__main__":
     # Cas 2 : différentes dispositions de trous
     results2 = []
     for grid_name, desc in grids2.items():
-        mcts, episode_rewards = train_case(
+        mcts, episode_rewards = train_case_mct(
             cas=grid_name,
             desc=desc,
             is_slippery=False,
@@ -202,7 +202,7 @@ if __name__ == "__main__":
     # Cas 3 : différentes dispositions de trous
     results3 = []
     for grid_name, desc in grids3.items():
-        mcts, episode_rewards = train_case(
+        mcts, episode_rewards = train_case_mct(
             cas=grid_name,
             desc=desc,
             is_slippery=False,
