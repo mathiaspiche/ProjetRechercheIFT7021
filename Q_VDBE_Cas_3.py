@@ -2,7 +2,7 @@ import numpy as np
 import gymnasium as gym
 from matplotlib import pyplot as plt
 from grillescas3 import grids
-from Q_VDBE_Soft import Q_VCBE_softmax
+from Q_VDBE_Soft import Q_VDBE_softmax
 
 
 env_3_0 = gym.make('FrozenLake-v1',
