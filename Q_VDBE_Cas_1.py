@@ -2,7 +2,7 @@ import numpy as np
 import gymnasium as gym
 from matplotlib import pyplot as plt
 from Cartes_Fred import loop_path
-from Q_VDBE_Soft import Q_VCBE_softmax
+from Q_VDBE_Soft import Q_VDBE_softmax
 
 env_0 = gym.make('FrozenLake-v1',
                  desc=loop_path,
