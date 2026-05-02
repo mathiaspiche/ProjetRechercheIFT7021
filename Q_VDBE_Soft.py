@@ -1,6 +1,6 @@
 import numpy as np
 
-def Q_VCBE_softmax(environment, max_episodes, max_steps, start_epsilon, sigma, alpha, temperature, gamma):
+def Q_VDBE_softmax(environment, max_episodes, max_steps, start_epsilon, sigma, alpha, temperature, gamma):
   n_actions = environment.action_space.n
   states_number = environment.observation_space.n
   Q_values = np.zeros([states_number, n_actions])+0.1
