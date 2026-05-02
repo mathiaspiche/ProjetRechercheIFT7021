@@ -9,12 +9,12 @@ from Cartes_Fred import loop_path
 from grillescas2 import grids as grids2
 from grillescas3 import grids as grids3
 
-N_ENVS = 8
-max_episodes = 1250
-reward_schedule = (1, -1, -0.01)
-average = 100
+N_ENVS = 8                          # Nombre d'environnements pour la stratégie
+max_episodes = 10000                # Maximum d'épisodes joués
+reward_schedule = (1, -1, -0.01)    # Fonction de récompense
+average = 100                       # Paramètre pour lisser les courbes affichées
 
-fleches = {
+fleches = {                         # Ensemble d'actions possibles
     0: "←",
     1: "↓",
     2: "→",
@@ -23,22 +23,27 @@ fleches = {
 
 
 class EpisodeRewardCallback(BaseCallback):
+    # Classe pour enregistrer les récompenses par épisode pendant l'entraînement A2C
     def __init__(self):
         super().__init__()
-        self.episode_rewards = []
-        self.episode_numbers = []
-        self.episode_count = 0
+        self.episode_rewards = []   # récompense cumulative de chaque épisode
+        self.episode_numbers = []   # indice de chaque épisode
+        self.episode_count = 0      # nombre d'épisodes total
 
     def _on_step(self) -> bool:
+        # appelé à chaque pas de temps, vérifie si un épisode vient de se terminer
+        # dans l'un des environnements parallèles
         for info in self.locals.get("infos", []):
-            if "episode" in info:
+            if "episode" in info:  # l'info "episode" est ajoutée par VecMonitor à la fin d'un épisode
                 self.episode_count += 1
                 self.episode_numbers.append(self.episode_count)
-                self.episode_rewards.append(info["episode"]["r"])
-        return True
+                self.episode_rewards.append(info["episode"]["r"])  # "r" = récompense cumulative non-actualisée
+        return True  # retourner False arrêterait l'entraînement
 
 
 def average_by_blocks(values, block_size=average):
+    # Méthode prenant en entrée un array de valeurs récoltées durant un épisode
+    # et retournant la moyenne des valeurs sur cet épisode ainsi que sa longueur
     block_means, block_ends = [], []
     for start in range(0, len(values), block_size):
         block = values[start:start + block_size]
@@ -49,6 +54,8 @@ def average_by_blocks(values, block_size=average):
 
 
 def extract_policy(model, desc):
+    # Méthode prenant en entrée un modèle A2C et permettant d'obtenir la politique résultante des prédictions
+    # de la stratégie implémentée
     n_rows, n_cols = len(desc), len(desc[0])
     final_policy = {}
     for s in range(n_rows * n_cols):
@@ -58,6 +65,10 @@ def extract_policy(model, desc):
 
 
 def evaluate_goal_rate(model, desc, n_eval_episodes=200):
+    # Méthode prenant en entrée une stratégie et une configuration de la grille ainsi
+    # qu'un nombre d'épisodes pour l'évaluation de la politique de la stratégie. Elle
+    # retourne le nombre de fois que le joueur parvient à atteindre l'état but sur le
+    # nombre d'épisodes joués
     eval_env = gym.make(
         "FrozenLake-v1",
         desc=desc,
@@ -79,6 +90,8 @@ def evaluate_goal_rate(model, desc, n_eval_episodes=200):
 
 
 def display_policy_grid(desc, final_policy, title="Politique finale"):
+    # Méthode prenant en entrée une configuration de la grille et une politique et retournant
+    # la grille annotée avec les actions optimales selon celle-ci.
     n_rows, n_cols = len(desc), len(desc[0])
     grid_labels = []
     for r in range(n_rows):
@@ -111,26 +124,18 @@ def display_policy_grid(desc, final_policy, title="Politique finale"):
     plt.show()
 
 
-def plot_training_rewards_together(rewards_1, rewards_2, label1, label2, block_size=100):
-    ep1, avg1 = average_by_blocks(rewards_1, block_size=block_size)
-    ep2, avg2 = average_by_blocks(rewards_2, block_size=block_size)
-    plt.figure(figsize=(8, 5))
-    plt.plot(ep1, avg1, label=label1)
-    plt.plot(ep2, avg2, label=label2)
-    plt.xlabel("Épisode")
-    plt.ylabel("Récompense cumulative moyenne de l'algorithme A2C pour le cas 1")
-    plt.title(f"Récompense cumulative moyenne sur {block_size} épisodes")
-    plt.grid(True)
-    plt.legend()
-    plt.tight_layout()
-    plt.show()
-
-
-def plot_all_training_rewards(results, block_size=100, title="Récompense cumulative moyenne"):
+def plot_training_rewards(results, block_size=100, title="Récompense cumulative moyenne"):
+    # Méthode prenant en entrée une liste de résultats
+    # et retournant un graphe conjoint des récompenses selon les épisodes
     plt.figure(figsize=(10, 6))
     for result in results:
-        episodes, avg_rewards = average_by_blocks(result["episode_rewards"], block_size=block_size)
-        plt.plot(episodes, avg_rewards, label=result["grid_name"])
+        if isinstance(result, dict):
+            rewards = result["episode_rewards"]
+            label = result["grid_name"]
+        else:
+            rewards, label = result
+        episodes, avg_rewards = average_by_blocks(rewards, block_size=block_size)
+        plt.plot(episodes, avg_rewards, label=label)
     plt.xlabel("Épisode")
     plt.ylabel("Récompense cumulative moyenne")
     plt.title(f"{title} sur {block_size} épisodes")
@@ -142,8 +147,10 @@ def plot_all_training_rewards(results, block_size=100, title="Récompense cumula
 
 def train_on_grid(desc, grid_name, n_envs=N_ENVS, max_ep=max_episodes,
                   is_slippery=False, success_rate=1.0, block_size=100):
-    print(f"\n===== {grid_name} =====")
-
+    # Méthode prenant en entrée une configuration de la grille de jeu,
+    # un nombre d'épisodes d'entraînement, le paramètre booléen slippery ainsi que
+    # le paramètre success_rate. Elle batît une politique basée sur la stratégie A2C implémentée et
+    # la retourne, avec les indicateurs de performance désirés.
     train_env = make_vec_env(
         "FrozenLake-v1",
         n_envs=n_envs,
@@ -157,17 +164,17 @@ def train_on_grid(desc, grid_name, n_envs=N_ENVS, max_ep=max_episodes,
     train_env = VecMonitor(train_env)
 
     reward_callback = EpisodeRewardCallback()
-    stop_callback = StopTrainingOnMaxEpisodes(max_episodes=max_ep, verbose=1)
+    stop_callback = StopTrainingOnMaxEpisodes(max_episodes=max_ep, verbose=0)
 
     model = A2C(
         "MlpPolicy",
         train_env,
         n_steps=15,
-        gamma=0.90,
+        gamma=0.99,
         ent_coef=0.01,
         use_rms_prop=True,
         normalize_advantage=True,
-        verbose=1,
+        verbose=0,
         stats_window_size=10
     )
 
@@ -192,9 +199,10 @@ def train_on_grid(desc, grid_name, n_envs=N_ENVS, max_ep=max_episodes,
         "final_policy": final_policy
     }
 
+
 if __name__ == "__main__":
-
-
+    # Ici, on effectue les expériences et on imprime les figures désirées
+    # Cas 1 : loop slippery vs non-slippery
     result_slip = train_on_grid(
         loop_path, "loop - slippery",
         is_slippery=True, success_rate=0.5
@@ -207,34 +215,35 @@ if __name__ == "__main__":
     display_policy_grid(loop_path, result_slip["final_policy"],   title="A2C - loop slippery")
     display_policy_grid(loop_path, result_noslip["final_policy"], title="A2C - loop non-slippery")
 
-    plot_training_rewards_together(
-        result_slip["episode_rewards"],
-        result_noslip["episode_rewards"],
-        label1="slippery=True, success_rate=1/2",
-        label2="slippery=False",
-        block_size=average
+    plot_training_rewards(
+        [
+            (result_slip["episode_rewards"],   "slippery=True, success_rate=1/2"),
+            (result_noslip["episode_rewards"], "slippery=False")
+        ],
+        block_size=average,
+        title="A2C Cas 1 - récompense cumulative moyenne"
     )
 
+    # Cas 2 : différents nombres de trous
     results2 = []
     for grid_name, desc in grids2.items():
         result = train_on_grid(desc, grid_name)
         results2.append(result)
-        print(f"{grid_name} - goal rate: {result['goal_rate']:.2%}")
 
-    plot_all_training_rewards(results2, block_size=average,
-                              title="A2C Cas 2 - récompense cumulative moyenne")
+    plot_training_rewards(results2, block_size=average,
+                          title="A2C Cas 2 - récompense cumulative moyenne")
     for result in results2:
         display_policy_grid(result["desc"], result["final_policy"],
                             title=f"Politique finale - {result['grid_name']}")
 
+    # Cas 3 : différentes dispositions de trous
     results3 = []
     for grid_name, desc in grids3.items():
         result = train_on_grid(desc, grid_name)
         results3.append(result)
-        print(f"{grid_name} - goal rate: {result['goal_rate']:.2%}")
 
-    plot_all_training_rewards(results3, block_size=average,
-                              title="A2C Cas 3 - récompense cumulative moyenne")
+    plot_training_rewards(results3, block_size=average,
+                          title="A2C Cas 3 - récompense cumulative moyenne")
     for result in results3:
         display_policy_grid(result["desc"], result["final_policy"],
                             title=f"Politique finale - {result['grid_name']}")

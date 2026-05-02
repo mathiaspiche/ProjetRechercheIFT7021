@@ -1,120 +1,33 @@
 import gymnasium as gym
-import matplotlib.pyplot as plt
 import numpy as np
 from collections import defaultdict
-from A2C import fleches, reward_schedule, max_episodes
+from A2C import (reward_schedule, max_episodes, average,
+                 display_policy_grid, plot_training_rewards)
 from Cartes_Fred import loop_path
 from grillescas2 import grids as grids2
 from grillescas3 import grids as grids3
-from A2C import average
-
-
-def average_by_blocks(values, block_size=average):
-    block_means = []
-    block_ends = []
-
-    for start in range(0, len(values), block_size):
-        block = values[start:start + block_size]
-        if len(block) > 0:
-            block_means.append(np.mean(block))
-            block_ends.append(start + len(block))
-
-    return block_ends, block_means
-
-
-def state_to_row_col(s, n_cols):
-    return s // n_cols, s % n_cols
 
 
 def is_terminal_state(desc, s):
+    # Retourne vrai si l'état s correspond à un trou ou à l'état but
     n_cols = len(desc[0])
-    r, c = state_to_row_col(s, n_cols)
+    r, c = s // n_cols, s % n_cols
     return desc[r][c] in ["H", "G"]
 
 
-def display_policy_grid(desc, final_policy, title="Politique finale"):
-    n_rows = len(desc)
-    n_cols = len(desc[0])
-
-    grid_labels = []
-    for r in range(n_rows):
-        row = []
-        for c in range(n_cols):
-            s = r * n_cols + c
-            cell = desc[r][c]
-
-            if cell == "H":
-                row.append("H")
-            elif cell == "G":
-                row.append("G")
-            elif cell == "S":
-                row.append(f"S{fleches[final_policy[s]]}")
-            else:
-                row.append(fleches[final_policy[s]])
-        grid_labels.append(row)
-
-    fig, ax = plt.subplots(figsize=(4, 4))
-    ax.set_xlim(0, n_cols)
-    ax.set_ylim(0, n_rows)
-    ax.set_xticks([])
-    ax.set_yticks([])
-    ax.invert_yaxis()
-
-    for r in range(n_rows):
-        for c in range(n_cols):
-            rect = plt.Rectangle((c, r), 1, 1, fill=False, edgecolor="black", linewidth=2)
-            ax.add_patch(rect)
-            ax.text(
-                c + 0.5, r + 0.5, grid_labels[r][c],
-                ha="center", va="center", fontsize=18
-            )
-
-    plt.title(title)
-    plt.tight_layout()
-    plt.show()
-
-
-def plot_training_rewards_together(rewards_1, rewards_2, label1, label2, block_size=100):
-    ep1, avg1 = average_by_blocks(rewards_1, block_size=block_size)
-    ep2, avg2 = average_by_blocks(rewards_2, block_size=block_size)
-
-    plt.figure(figsize=(8, 5))
-    plt.plot(ep1, avg1, label=label1)
-    plt.plot(ep2, avg2, label=label2)
-    plt.xlabel("Épisode")
-    plt.ylabel("Récompense cumulative moyenne")
-    plt.title(f"Optimized MCTS : récompense cumulative moyenne sur {block_size} épisodes")
-    plt.grid(True)
-    plt.legend()
-    plt.tight_layout()
-    plt.show()
-
-
-def plot_training_rewards_triple(rewards_1, rewards_2, rewards_3, label1, label2, label3, title, block_size=100):
-    ep1, avg1 = average_by_blocks(rewards_1, block_size=block_size)
-    ep2, avg2 = average_by_blocks(rewards_2, block_size=block_size)
-    ep3, avg3 = average_by_blocks(rewards_3, block_size=block_size)
-
-    plt.figure(figsize=(8, 5))
-    plt.plot(ep1, avg1, label=label1)
-    plt.plot(ep2, avg2, label=label2)
-    plt.plot(ep3, avg3, label=label3)
-    plt.xlabel("Épisode")
-    plt.ylabel("Récompense cumulative moyenne")
-    plt.title(f"{title} : récompense cumulative moyenne sur {block_size} épisodes")
-    plt.grid(True)
-    plt.legend()
-    plt.tight_layout()
-    plt.show()
-
-
 class OptimizedMCTS:
+    # Classe définissant un algorithme de Monte Carlo Tree Search optimisé pour
+    # l'environnement FrozenLake. Elle maintient une table de valeurs Q et un
+    # compteur de visites pour chaque paire (état, action), et utilise la formule
+    # UCT lors de la sélection des actions. À chaque épisode, l'algorithme
+    # suit une trajectoire dans l'environnement, puis ajuste en commencant par le dernier état
+    # les récompenses obtenues pour mettre à jour les valeurs Q de chaque paire (état, action) visitée.
     def __init__(
         self,
         env,
         n_actions,
         gamma=0.99,
-        exploration_c=3, # hyperparamètre
+        exploration_c=3,
     ):
         self.env = env
         self.n_actions = n_actions
@@ -126,6 +39,8 @@ class OptimizedMCTS:
         self.N_s = defaultdict(float)
 
     def uct_score(self, state, action):
+        # Méthode prenant en entrée un état et une action et
+        # retournant la valeur UCT de cette paire.
         if self.N_sa[state][action] == 0:
             return np.inf
 
@@ -136,10 +51,14 @@ class OptimizedMCTS:
         return exploitation + exploration
 
     def select_action_uct(self, state):
+        # Méthode permettant de sélectionner une action à partir d'un état s
+        # selon les valeurs UCT des paires (s,a)
         scores = [self.uct_score(state, a) for a in range(self.n_actions)]
         return int(np.argmax(scores))
 
     def run_episode(self):
+        # Méthode qui effectue une trajectoire dans la grille de jeu et
+        # retourne les récompenses obtenues.
         state, _ = self.env.reset()
         done = False
 
@@ -164,6 +83,9 @@ class OptimizedMCTS:
         return total_reward
 
     def backpropagate(self, trajectory, terminal_reward):
+        # Méthode prenant en entrée une trajectoire effectuée dans l'environnement,
+        # et la récompense de l'état terminal. Elle calcule le rendement actualisé en
+        # partant du dernier état et met à jour les valeurs Q des paires (s,a)
         G = terminal_reward
 
         for state, action in reversed(trajectory):
@@ -175,8 +97,9 @@ class OptimizedMCTS:
 
             G = self.gamma * G
 
-
     def extract_policy(self, desc):
+        # Méthode prenant en entrée un modèle MCTS et permettant d'obtenir la
+        # politique résultante des prédictions de la stratégie implémentée
         n_rows = len(desc)
         n_cols = len(desc[0])
         final_policy = {}
@@ -189,9 +112,12 @@ class OptimizedMCTS:
 
         return final_policy
 
-def train_case(cas, desc, is_slippery, success_rate, reward_schedule):
-    print(f"\n===== {cas} =====")
 
+def train_case(desc, is_slippery, success_rate, reward_schedule):
+    # Méthode prenant en entrée une configuration de grille, les paramètres is_slippery
+    # et success_rate de Gymnasium et une fonction de récompense. Elle soutire la politique
+    # obtenue après avoir fait plusieurs itérations de la stratégie et retourne, entre autres, les
+    # récompenses obtenues.
     env = gym.make(
         "FrozenLake-v1",
         desc=desc,
@@ -213,19 +139,13 @@ def train_case(cas, desc, is_slippery, success_rate, reward_schedule):
         ep_reward = mcts.run_episode()
         episode_rewards.append(ep_reward)
 
-        if episode % average == 0:
-            print(
-                f"Épisode {episode}/{max_episodes} | "
-                f"récompense moyenne = {np.mean(episode_rewards[-average:]):.3f}"
-            )
-
     env.close()
     return mcts, episode_rewards
 
 
 if __name__ == "__main__":
-
-    # Cas 1
+    # Ici, on effectue les expériences et on imprime les figures désirées
+    # Cas 1 : loop slippery vs non-slippery
     mcts_slip, rewards_slip = train_case(
         cas="Case 1: is_slippery=True, success_rate=1/2",
         desc=loop_path,
@@ -233,7 +153,6 @@ if __name__ == "__main__":
         success_rate=1.0 / 2.0,
         reward_schedule=reward_schedule
     )
-
     policy_slip = mcts_slip.extract_policy(loop_path)
     display_policy_grid(loop_path, policy_slip, title="Optimized MCTS - slippery")
 
@@ -244,92 +163,62 @@ if __name__ == "__main__":
         success_rate=1.0,
         reward_schedule=reward_schedule
     )
-
     policy_noslip = mcts_noslip.extract_policy(loop_path)
     display_policy_grid(loop_path, policy_noslip, title="Optimized MCTS - non-slippery")
 
-    plot_training_rewards_together(
-        rewards_slip,
-        rewards_noslip,
-        label1="slippery=True, success_rate=1/2",
-        label2="slippery=False",
-        block_size=average
+    plot_training_rewards(
+        [
+            (rewards_slip,   "slippery=True, success_rate=1/2"),
+            (rewards_noslip, "slippery=False")
+        ],
+        block_size=average,
+        title="Optimized MCTS Cas 1 - récompense cumulative moyenne"
     )
 
-    # Cas 2
-    mcts_d1, rewards_d1 = train_case(
-        cas="desc1",
-        desc=grids2[0],
-        is_slippery=False,
-        success_rate=1.0,
-        reward_schedule=reward_schedule
-    )
-    policy_d1 = mcts_d1.extract_policy(grids2[0])
-    display_policy_grid(grids2[0], policy_d1, title="Optimized MCTS - desc1")
+    # Cas 2 : différentes dispositions de trous
+    results2 = []
+    for grid_name, desc in grids2.items():
+        mcts, episode_rewards = train_case(
+            cas=grid_name,
+            desc=desc,
+            is_slippery=False,
+            success_rate=1.0,
+            reward_schedule=reward_schedule
+        )
+        final_policy = mcts.extract_policy(desc)
+        results2.append({
+            "grid_name": grid_name,
+            "desc": desc,
+            "episode_rewards": episode_rewards,
+            "final_policy": final_policy
+        })
 
-    mcts_d2, rewards_d2 = train_case(
-        cas="desc2",
-        desc=grids2[1],
-        is_slippery=False,
-        success_rate=1.0,
-        reward_schedule=reward_schedule
-    )
-    policy_d2 = mcts_d2.extract_policy(grids2[1])
-    display_policy_grid(grids2[1], policy_d2, title="Optimized MCTS - desc2")
+    plot_training_rewards(results2, block_size=average,
+                          title="Optimized MCTS Cas 2 - récompense cumulative moyenne")
+    for result in results2:
+        display_policy_grid(result["desc"], result["final_policy"],
+                            title=f"Optimized MCTS - {result['grid_name']}")
 
-    mcts_d3, rewards_d3 = train_case(
-        cas="desc3",
-        desc=grids2[2],
-        is_slippery=False,
-        success_rate=1.0,
-        reward_schedule=reward_schedule
-    )
-    policy_d3 = mcts_d3.extract_policy(grids2[2])
-    display_policy_grid(grids2[2], policy_d3, title="Optimized MCTS - desc3")
+    # Cas 3 : différentes dispositions de trous
+    results3 = []
+    for grid_name, desc in grids3.items():
+        mcts, episode_rewards = train_case(
+            cas=grid_name,
+            desc=desc,
+            is_slippery=False,
+            success_rate=1.0,
+            reward_schedule=reward_schedule
+        )
+        final_policy = mcts.extract_policy(desc)
+        results3.append({
+            "grid_name": grid_name,
+            "desc": desc,
+            "episode_rewards": episode_rewards,
+            "final_policy": final_policy
+        })
 
-    plot_training_rewards_triple(
-        rewards_d1, rewards_d2, rewards_d3,
-        label1="desc1", label2="desc2", label3="desc3",
-        title="Comparaison desc1 / desc2 / desc3",
-        block_size=average
-    )
-
-
-    # Cas 3
-
-    mcts_d4, rewards_d4 = train_case(
-        cas="desc4 - is_slippery=True, success_rate=1/2",
-        desc=grids3[0],
-        is_slippery=False,
-        success_rate=1.0,
-        reward_schedule=reward_schedule
-    )
-    policy_d4 = mcts_d4.extract_policy(grids3[0]) #
-    display_policy_grid(grids3[0], policy_d4, title="Optimized MCTS - desc4")
-
-    mcts_d5, rewards_d5 = train_case(
-        cas="desc5 - is_slippery=True, success_rate=1/2",
-        desc=grids3[1],
-        is_slippery=False,
-        success_rate=1.0,
-        reward_schedule=reward_schedule
-    )
-    policy_d5 = mcts_d5.extract_policy(grids3[1])
-    display_policy_grid(grids3[1], policy_d5, title="Optimized MCTS - desc5")
-
-    mcts_d6, rewards_d6 = train_case(
-        cas="desc6 - is_slippery=True, success_rate=1/2",
-        desc=grids3[2],
-        is_slippery=False,
-        success_rate=1.0,
-        reward_schedule=reward_schedule
-    )
-    policy_d6 = mcts_d6.extract_policy(grids3[2])
-    display_policy_grid(grids3[2], policy_d6, title="Optimized MCTS - desc6")
-
-    plot_training_rewards_triple(
-        rewards_d4, rewards_d5, rewards_d6,
-        label1="desc4", label2="desc5", label3="desc6",
-        title="Comparaison desc4 / desc5 / desc6",
-        block_size=average
-    )
+    plot_training_rewards(results3, block_size=average,
+                          title="Optimized MCTS Cas 3 - récompense cumulative moyenne")
+    for result in results3:
+        display_policy_grid(result["desc"], result["final_policy"],
+                            title=f"Optimized MCTS - {result['grid_name']}")
